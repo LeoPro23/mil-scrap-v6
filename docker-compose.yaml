@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  scraper:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      # Para depuración, cambiar a 'true' si necesitas ver el navegador
+      - HEADLESS=true
+    restart: unless-stopped
+    # Necesario para ejecutar Chrome en Docker
+    cap_add:
+      - SYS_ADMIN
+    # Opcional: montar volumen para persistir datos o logs
+    volumes:
+      - ./:/app # Monta el directorio raíz del proyecto al directorio /app del contenedor
+      - /app/node_modules # Evita que node_modules local sobrescriba el del contenedor
+      - ./logs:/app/logs
