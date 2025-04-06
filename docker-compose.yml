@@ -2,9 +2,9 @@ services:
   scraper:
     build: .
     ports:
-      - "3000:3000"
+      - "3001:3000" #
     environment:
-      - PORT=3000
+      - PORT=3000 # Puerto en el que la aplicación escuchará
       # Para depuración, cambiar a 'true' si necesitas ver el navegador
       - HEADLESS=true
     restart: unless-stopped
