@@ -1,18 +1,28 @@
+version: '3.8'
+
 services:
   scraper:
     build: .
     ports:
-      - "3001:3000" #
+      - "3001:3000" # Puerto de la API 
+      - "6080:6080" # Puerto noVNC para acceder al navegador visualmente
     environment:
       - PORT=3000 # Puerto en el que la aplicación escuchará
-      # Para depuración, cambiar a 'true' si necesitas ver el navegador
-      - HEADLESS=true
+      - HEADLESS=false # Configurar como false para poder ver el navegador en VNC
+      - RESOLUTION=1366x768x24 # Resolución del navegador virtual
+      - NOVNC_PORT=6080 # Puerto explícito para noVNC
+      - DISPLAY=:99
     restart: unless-stopped
     # Necesario para ejecutar Chrome en Docker
     cap_add:
       - SYS_ADMIN
-    # Opcional: montar volumen para persistir datos o logs
+    security_opt:
+      - seccomp=unconfined # Necesario para Chrome en Docker
+    # Volúmenes para persistir datos, logs y montar los scripts
     volumes:
       - ./:/app # Monta el directorio raíz del proyecto al directorio /app del contenedor
       - /app/node_modules # Evita que node_modules local sobrescriba el del contenedor
       - ./logs:/app/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix # Comparte el socket X11
+    shm_size: 2gb # Memoria compartida suficiente para Chrome
+    ipc: host # Permite compartir memoria entre procesos

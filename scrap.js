@@ -2,11 +2,13 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
+
 // Función de delay con variación para parecer más humano
 function sleep(ms) {
   const jitter = Math.floor(Math.random() * 100);
   return new Promise(resolve => setTimeout(resolve, ms + jitter));
 }
+
 // Auto-scroll exhaustivo para cargar todos los elementos
 async function exhaustiveScroll(page) {
   console.log('Iniciando scroll exhaustivo para cargar todos los elementos...');
@@ -337,6 +339,9 @@ async function scrapeMilanuncios(searchParams = {}) {
   const urlToScrape = buildUrl(searchParams);
   console.log(`Scraping URL: ${urlToScrape}`);
 
+  console.log('Esperando 5 segundos para que el entorno gráfico se estabilice...');
+  await sleep(5000);
+
   let browser = null;
   let maxRetries = 2;
 
@@ -344,99 +349,47 @@ async function scrapeMilanuncios(searchParams = {}) {
     try {
       if (attempt > 0) {
         console.log(`\n=== Intento ${attempt} de ${maxRetries} ===\n`);
+        await sleep(5000);
       }
 
-      // Configuración mejorada para Docker
+      // Configuración básica para el navegador
       const launchOptions = {
-        headless: process.env.HEADLESS || true, // Por defecto true a menos que se especifique
+        headless: process.env.HEADLESS !== 'false',
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
-          '--disable-gpu',
           '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-features=IsolateOrigins,site-per-process,SitePerProcess',
-          '--disable-site-isolation-trials',
-          '--disable-web-security',
-          '--disable-features=BlockInsecurePrivateNetworkRequests',
-          '--window-size=1920,1080',
-          '--disable-setuid-sandbox',
-          '--disable-infobars',
-          '--single-process', // Importante para entornos Docker
-          '--disable-extensions'
+          '--window-size=1366,768',
         ],
         ignoreHTTPSErrors: true,
         defaultViewport: null
       };
 
-      console.log('Lanzando navegador...');
+      console.log(`Modo headless: ${launchOptions.headless} (HEADLESS=${process.env.HEADLESS})`);
+      console.log('Iniciando navegador...');
+      
+      // Lanzar el navegador con una configuración simple
       browser = await puppeteer.launch(launchOptions);
 
-      // Crear página directamente
+      console.log('Creando nueva página...');
       const page = await browser.newPage();
+      
+      // Configurar timeouts altos para evitar problemas
+      await page.setDefaultNavigationTimeout(60000);
+      await page.setDefaultTimeout(30000);
 
-      // Configurar tiempos de espera más altos
-      page.setDefaultNavigationTimeout(60000);
-      page.setDefaultTimeout(30000);
-
-      // Configurar user agent aleatorio
-      const userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
-      console.log(`Usando User-Agent: ${userAgent}`);
+      // Configurar user agent
+      const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
       await page.setUserAgent(userAgent);
 
-      // Configurar cabeceras HTTP adicionales
-      await page.setExtraHTTPHeaders({
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      });
-
-      // Establecer cookies iniciales (ayuda a evitar algunas detecciones)
-      await page.setCookie({
-        name: 'visited_before',
-        value: 'true',
-        domain: '.milanuncios.com',
-        path: '/',
-        expires: Math.floor(Date.now() / 1000) + 86400
-      });
-
-      // Configurar interceptación de peticiones para bloquear recursos innecesarios
-      await page.setRequestInterception(true);
-
-      page.on('request', (request) => {
-        const url = request.url();
-        const resourceType = request.resourceType();
-
-        // Bloquear recursos que no son necesarios para la extracción
-        if (
-          (resourceType === 'image' && !url.includes('milanuncios.com')) ||
-          resourceType === 'media' ||
-          url.includes('google-analytics') ||
-          url.includes('facebook.net') ||
-          url.includes('doubleclick.net') ||
-          url.includes('amazon-adsystem') ||
-          url.includes('/ads/') ||
-          url.includes('analytics') ||
-          url.includes('tracker')
-        ) {
-          request.abort();
-        } else {
-          request.continue();
-        }
-      });
-      // Navegar a la página con tiempos de carga extendidos
+      // Navegar a la URL
       console.log('Navegando a la URL...');
-
       await page.goto(urlToScrape, {
         waitUntil: 'networkidle2',
         timeout: 60000
       });
-
-      console.log('Página cargada.');
+      console.log('Página cargada correctamente.');
 
       // Manejar cookies
       await handleCookiesConsent(page);
@@ -444,24 +397,22 @@ async function scrapeMilanuncios(searchParams = {}) {
       // Esperar un tiempo antes de continuar
       await sleep(2000);
 
-
       // Contar elementos antes del scroll
       console.log('Contando elementos antes del scroll:');
       const initialCount = await countVisibleElements(page);
 
-      // Realizar auto-scroll exhaustivo para cargar TODOS los elementos
+      // Realizar auto-scroll para cargar todos los elementos
       await exhaustiveScroll(page);
 
       // Contar elementos después del scroll
       console.log('Contando elementos después del scroll:');
       const finalCount = await countVisibleElements(page);
-
       console.log(`Incremento de elementos: ${finalCount - initialCount} (${initialCount} -> ${finalCount})`);
 
       // Esperar un poco después del auto-scroll
       await sleep(3000);
 
-      // Extraer los datos de manera exhaustiva
+      // Extraer los datos
       const scrapedData = await extractData(page);
 
       // Verificar si hubo error en la extracción
@@ -500,7 +451,11 @@ async function scrapeMilanuncios(searchParams = {}) {
 
       // Cerrar el navegador si sigue abierto
       if (browser) {
-        await browser.close();
+        try {
+          await browser.close();
+        } catch (closeError) {
+          console.error('Error al cerrar el navegador:', closeError.message);
+        }
         browser = null;
       }
 
@@ -510,7 +465,7 @@ async function scrapeMilanuncios(searchParams = {}) {
       }
 
       // Esperar antes de reintentar
-      const retryDelay = (attempt + 1) * 5000; // Incrementar tiempo entre reintentos
+      const retryDelay = (attempt + 1) * 8000;
       console.log(`Esperando ${retryDelay / 1000} segundos antes de reintentar...`);
       await sleep(retryDelay);
     }
