@@ -1,127 +1,145 @@
-#!/bin/bash
+#!/usr/bin/bash
+set -x # Enable command tracing
+
+# Log environment variables for debugging
+/usr/bin/env > /tmp/vnc_env.log
 
 # Establecer variables de entorno críticas para X11
 export DISPLAY=:99
 export XAUTHORITY=/tmp/.Xauthority
 export LIBGL_ALWAYS_INDIRECT=1
 
+# Ensure RESOLUTION is set properly with a default value
+export RESOLUTION=${RESOLUTION:-"1366x768x24"}
+
 # Configuraciones de sistema importantes para Chrome
-echo "1234567890abcdef1234567890abcdef" > /etc/machine-id
-mkdir -p /tmp/.X11-unix
-chmod 1777 /tmp/.X11-unix
-mkdir -p /dev/shm
-chmod 1777 /dev/shm
+/bin/echo "1234567890abcdef1234567890abcdef" > /etc/machine-id
+/bin/mkdir -p /tmp/.X11-unix
+/bin/chmod 1777 /tmp/.X11-unix
+/bin/mkdir -p /dev/shm
+/bin/chmod 1777 /dev/shm
 
 # Crear directorios para X11
-touch $XAUTHORITY
-chmod 600 $XAUTHORITY
-xauth generate :99 . trusted
+/usr/bin/touch $XAUTHORITY
+/bin/chmod 600 $XAUTHORITY
+/usr/bin/xauth generate :99 . trusted
 
-echo "======================================"
-echo "Iniciando servicios de VNC"
-echo "Resolución: $RESOLUTION"
-echo "Display: $DISPLAY"
-echo "======================================"
+/bin/echo "======================================"
+/bin/echo "Iniciando servicios de VNC"
+/bin/echo "Resolución: $RESOLUTION"
+/bin/echo "Display: $DISPLAY"
+/bin/echo "======================================"
 
-# Iniciar Xvfb con configuración optimizada
-echo "Iniciando Xvfb..."
-Xvfb :99 -screen 0 $RESOLUTION -ac +extension GLX +render -noreset &
+# Iniciar Xvfb con configuración optimizada y logueo
+/bin/echo "Iniciando Xvfb..."
+/usr/bin/Xvfb :99 -screen 0 ${RESOLUTION} -ac +extension GLX +render -noreset > /tmp/xvfb.log 2>&1 &
 XVFB_PID=$!
 
 # Asegurarse de que Xvfb está funcionando
-sleep 3
-if ! ps -p $XVFB_PID > /dev/null; then
-    echo "ERROR: Xvfb no se pudo iniciar."
+/bin/sleep 3
+if ! /bin/ps -p $XVFB_PID > /dev/null; then
+    /bin/echo "ERROR: Xvfb no se pudo iniciar. Ver /tmp/xvfb.log"
+    /bin/cat /tmp/xvfb.log # Mostrar log si falla
     exit 1
 fi
-echo "Xvfb iniciado correctamente en :99"
+/bin/echo "Xvfb iniciado correctamente en :99"
 
-# Iniciar x11vnc con opciones más permisivas
-echo "Iniciando servidor x11vnc..."
-x11vnc -display :99 -rfbport 5900 -shared -forever -nopw -noxdamage -noxrecord -noxfixes -noxinerama -wait 5 -permitfiletransfer &
+# Iniciar x11vnc con opciones más permisivas y logueo
+/bin/echo "Iniciando servidor x11vnc..."
+/usr/bin/x11vnc -display :99 -rfbport 5900 -shared -forever -nopw -noxdamage -noxrecord -noxfixes -noxinerama -wait 5 -permitfiletransfer > /tmp/x11vnc.log 2>&1 &
 X11VNC_PID=$!
 
 # Verificar que x11vnc está funcionando
-sleep 3
-if ! ps -p $X11VNC_PID > /dev/null; then
-    echo "ERROR: x11vnc no se pudo iniciar."
+/bin/sleep 3
+if ! /bin/ps -p $X11VNC_PID > /dev/null; then
+    /bin/echo "ERROR: x11vnc no se pudo iniciar. Ver /tmp/x11vnc.log"
+    /bin/cat /tmp/x11vnc.log # Mostrar log si falla
     exit 1
 fi
-echo "x11vnc iniciado correctamente en puerto 5900"
+/bin/echo "x11vnc iniciado correctamente en puerto 5900"
 
-# Establecer BASE_URL para el proxy reverso
+# Establecer BASE_URL para el proxy reverso y NOVNC_PORT
 BASE_URL=${BASE_URL:-"/"}
-echo "Configurando noVNC con BASE_URL=$BASE_URL"
+NOVNC_PORT=${NOVNC_PORT:-"6080"}
+/bin/echo "Configurando noVNC con BASE_URL=$BASE_URL en puerto $NOVNC_PORT"
 
 # Copiar archivos estáticos de noVNC a una ubicación accesible
-echo "Configurando archivos estáticos de noVNC..."
-mkdir -p /usr/share/novnc/static
-cp -R /usr/share/novnc/* /usr/share/novnc/static/ 2>/dev/null || echo "No se pudieron copiar archivos estáticos"
+/bin/echo "Configurando archivos estáticos de noVNC..."
+/bin/mkdir -p /usr/share/novnc/static
+/bin/cp -R /usr/share/novnc/* /usr/share/novnc/static/ 2>/dev/null || /bin/echo "No se pudieron copiar archivos estáticos"
 
-# Iniciar noVNC con opciones adicionales para trabajar mejor con proxy
-echo "Iniciando noVNC..."
+# Iniciar noVNC con opciones adicionales para trabajar mejor con proxy y logueo
+/bin/echo "Iniciando noVNC..."
 if [ -f /usr/share/novnc/utils/novnc_proxy ]; then
-    /usr/share/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 0.0.0.0:6080 --web /usr/share/novnc/static &
+    /usr/share/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 0.0.0.0:${NOVNC_PORT} --web /usr/share/novnc/static > /tmp/novnc.log 2>&1 &
 elif [ -f /usr/share/novnc/utils/launch.sh ]; then
-    /usr/share/novnc/utils/launch.sh --vnc 127.0.0.1:5900 --listen 0.0.0.0:6080 --web /usr/share/novnc/static &
+    /usr/share/novnc/utils/launch.sh --vnc 127.0.0.1:5900 --listen 0.0.0.0:${NOVNC_PORT} --web /usr/share/novnc/static > /tmp/novnc.log 2>&1 &
 else
-    websockify --web=/usr/share/novnc/static 0.0.0.0:6080 127.0.0.1:5900 &
+    /usr/bin/websockify --web=/usr/share/novnc/static 0.0.0.0:${NOVNC_PORT} 127.0.0.1:5900 > /tmp/novnc.log 2>&1 &
 fi
 NOVNC_PID=$!
 
-sleep 3
-if ! ps -p $NOVNC_PID > /dev/null; then
-    echo "ERROR: noVNC no se pudo iniciar."
+/bin/sleep 3
+if ! /bin/ps -p $NOVNC_PID > /dev/null; then
+    /bin/echo "ERROR: noVNC no se pudo iniciar. Ver /tmp/novnc.log"
+    /bin/cat /tmp/novnc.log # Mostrar log si falla
     exit 1
 fi
-echo "noVNC iniciado correctamente en puerto 6080"
+/bin/echo "noVNC iniciado correctamente en puerto ${NOVNC_PORT}"
 
 # Mostrar los procesos en ejecución
-echo "======================================"
-echo "Procesos VNC en ejecución:"
-ps aux | grep -E 'Xvfb|x11vnc|novnc|websockify' | grep -v grep
-echo "======================================"
+/bin/echo "======================================"
+/bin/echo "Procesos VNC en ejecución:"
+/bin/ps aux | /bin/grep -E 'Xvfb|x11vnc|novnc|websockify' | /bin/grep -v grep
+/bin/echo "======================================"
 
-echo "Puedes conectarte a VNC en: http://localhost:6080/"
-echo "Mantén esta ventana abierta. El navegador Chrome aparecerá aquí."
-echo "======================================"
+/bin/echo "Puedes conectarte a VNC en: http://localhost:${NOVNC_PORT}/"
+/bin/echo "Mantén esta ventana abierta. El navegador Chrome aparecerá aquí."
+/bin/echo "======================================"
 
 # Mantener el script en ejecución
 while true; do
     # Verificar que todos los servicios siguen en funcionamiento
-    if ! ps -p $XVFB_PID > /dev/null || ! ps -p $X11VNC_PID > /dev/null || ! ps -p $NOVNC_PID > /dev/null; then
-        echo "ERROR: Uno de los servicios VNC ha fallado. Reiniciando..."
-        
+    if ! /bin/ps -p $XVFB_PID > /dev/null || ! /bin/ps -p $X11VNC_PID > /dev/null || ! /bin/ps -p $NOVNC_PID > /dev/null; then
+        /bin/echo "ERROR: Uno de los servicios VNC ha fallado. Revisando logs..."
+        /bin/echo "--- Xvfb Log (/tmp/xvfb.log) ---"
+        /usr/bin/tail -n 20 /tmp/xvfb.log || /bin/echo "No log found"
+        /bin/echo "--- x11vnc Log (/tmp/x11vnc.log) ---"
+        /usr/bin/tail -n 20 /tmp/x11vnc.log || /bin/echo "No log found"
+        /bin/echo "--- noVNC Log (/tmp/novnc.log) ---"
+        /usr/bin/tail -n 20 /tmp/novnc.log || /bin/echo "No log found"
+        /bin/echo "Reiniciando servicios VNC..."
+
         # Intentar matar procesos que puedan estar corriendo
-        pkill -9 Xvfb || true
-        pkill -9 x11vnc || true
-        pkill -9 websockify || true
-        pkill -9 novnc_proxy || true
-        
+        /usr/bin/pkill -9 Xvfb || true
+        /usr/bin/pkill -9 x11vnc || true
+        /usr/bin/pkill -9 websockify || true
+        /usr/bin/pkill -9 novnc_proxy || true
+
         # Reiniciar Xvfb
-        Xvfb :99 -screen 0 $RESOLUTION -ac +extension GLX +render -noreset &
+        /usr/bin/Xvfb :99 -screen 0 ${RESOLUTION} -ac +extension GLX +render -noreset > /tmp/xvfb.log 2>&1 &
         XVFB_PID=$!
-        sleep 2
-        
+        /bin/sleep 2
+
         # Reiniciar x11vnc
-        x11vnc -display :99 -rfbport 5900 -shared -forever -nopw -noxdamage -noxrecord -noxfixes -noxinerama -wait 5 -permitfiletransfer &
+        /usr/bin/x11vnc -display :99 -rfbport 5900 -shared -forever -nopw -noxdamage -noxrecord -noxfixes -noxinerama -wait 5 -permitfiletransfer > /tmp/x11vnc.log 2>&1 &
         X11VNC_PID=$!
-        sleep 2
-        
+        /bin/sleep 2
+
         # Reiniciar noVNC con opciones para proxy
         if [ -f /usr/share/novnc/utils/novnc_proxy ]; then
-            /usr/share/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 0.0.0.0:6080 --web /usr/share/novnc/static &
+            /usr/share/novnc/utils/novnc_proxy --vnc 127.0.0.1:5900 --listen 0.0.0.0:${NOVNC_PORT} --web /usr/share/novnc/static > /tmp/novnc.log 2>&1 &
         elif [ -f /usr/share/novnc/utils/launch.sh ]; then
-            /usr/share/novnc/utils/launch.sh --vnc 127.0.0.1:5900 --listen 0.0.0.0:6080 --web /usr/share/novnc/static &
+            /usr/share/novnc/utils/launch.sh --vnc 127.0.0.1:5900 --listen 0.0.0.0:${NOVNC_PORT} --web /usr/share/novnc/static > /tmp/novnc.log 2>&1 &
         else
-            websockify --web=/usr/share/novnc/static 0.0.0.0:6080 127.0.0.1:5900 &
+            /usr/bin/websockify --web=/usr/share/novnc/static 0.0.0.0:${NOVNC_PORT} 127.0.0.1:5900 > /tmp/novnc.log 2>&1 &
         fi
         NOVNC_PID=$!
-        sleep 2
-        
-        echo "Servicios VNC reiniciados"
+        /bin/sleep 2
+
+        /bin/echo "Servicios VNC reiniciados"
     fi
-    
+
     # Esperar 5 segundos antes de verificar nuevamente
-    sleep 5
+    /bin/sleep 5
 done

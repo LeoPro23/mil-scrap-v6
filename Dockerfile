@@ -77,7 +77,7 @@ COPY vnc_config/start-vnc.sh /app/vnc_config/
 RUN chmod +x /app/vnc_config/start-vnc.sh
 
 # Exponer el puerto que usa Express y el puerto de VNC
-EXPOSE 3001 6080
+EXPOSE 3000 6080
 
 # Comando para iniciar supervisord que gestionará ambos servicios
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

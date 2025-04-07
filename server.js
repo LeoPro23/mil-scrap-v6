@@ -32,7 +32,8 @@ function logWithTimestamp(message, isError = false) {
 }
 
 const app = express();
-const port = process.env.PORT || 3001;
+// Asegurar que usamos el puerto de la variable de entorno, que en docker-compose es 3000
+const port = process.env.PORT || 3000;
 
 // Middleware para registrar todas las peticiones
 app.use((req, res, next) => {

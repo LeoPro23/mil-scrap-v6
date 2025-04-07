@@ -9,7 +9,7 @@
   try {
     // Define los parámetros de búsqueda
     const params = new URLSearchParams({
-      s: 'hyundai rojo',
+      s: 'hyundai negro',
       desde: '1010',
       hasta: '20200',
       demanda: 'n',
@@ -24,7 +24,7 @@
     });
 
     // Construye la URL del endpoint del servidor
-    const url = `http://localhost:3001/scrape?${params.toString()}`;
+    const url = `http://localhost:3002/scrape?${params.toString()}`;
     console.log(`Probando endpoint: ${url}`);
 
     // Realiza la petición GET
