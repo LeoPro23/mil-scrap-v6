@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   scraper:
     build: .
     ports:
-      - "3001:3000" # Puerto de la API 
-      - "6080:6080" # Puerto noVNC para acceder al navegador visualmente
+      - "3002:3000" # Cambiado de 3001 a 3002 para evitar conflicto
+      - "6085:6080" # Cambiado de 6080 a 6085 para evitar posibles conflictos
     environment:
       - PORT=3000 # Puerto en el que la aplicación escuchará
       - HEADLESS=false # Configurar como false para poder ver el navegador en VNC
