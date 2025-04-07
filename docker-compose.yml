@@ -8,7 +8,7 @@ services:
       - PORT=3000 # Puerto en el que la aplicación escuchará
       - HEADLESS=false # Configurar como false para poder ver el navegador en VNC
       - RESOLUTION=1366x768x24 # Resolución del navegador virtual
-      - NOVNC_PORT=6080 # Puerto explícito para noVNC
+      - NOVNC_PORT=6085 # Puerto explícito para noVNC
       - DISPLAY=:99
       - N8N_WEBHOOK_URL=https://n8n.sitemaster.lat/webhook/leotest # URL del webhook de n8n
     restart: unless-stopped
@@ -23,5 +23,7 @@ services:
       - /app/node_modules # Evita que node_modules local sobrescriba el del contenedor
       - ./logs:/app/logs
       - /tmp/.X11-unix:/tmp/.X11-unix # Comparte el socket X11
+      - ./vnc:/root/.vnc # Configuración de VNC
+      - ./vnc:/home/node/.vnc # Configuración de VNC para el usuario node
     shm_size: 2gb # Memoria compartida suficiente para Chrome
     ipc: host # Permite compartir memoria entre procesos
