@@ -9,7 +9,7 @@
   try {
     // Define los parámetros de búsqueda
     const params = new URLSearchParams({
-      s: 'hyundai negro',
+      s: 'hyundai rojo',
       desde: '1010',
       hasta: '20200',
       demanda: 'n',

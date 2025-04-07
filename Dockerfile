@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     libnss3 libgconf-2-4 \
     libasound2 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
     libxdamage1 libxfixes3 libxrandr2 libgbm1 libu2f-udev libvulkan1 \
+    sed \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -56,12 +57,16 @@ COPY package*.json ./
 RUN npm install
 
 # Instalar puppeteer-extra y plugins
-RUN npm install puppeteer-extra puppeteer-extra-plugin-stealth axios
+RUN npm install puppeteer-extra puppeteer-extra-plugin-stealth axios jimp pixelmatch
 
 # Copiar los archivos de la aplicación
 COPY server.js ./
 COPY scrap.js ./
 COPY test.js ./
+COPY captchaSolver.js ./
+
+# Eliminar BOM (Byte Order Mark) de captchaSolver.js si existe
+RUN sed -i '1s/^\xEF\xBB\xBF//' captchaSolver.js
 
 # Configuración de supervisord para gestionar los procesos
 COPY vnc_config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -72,7 +77,7 @@ COPY vnc_config/start-vnc.sh /app/vnc_config/
 RUN chmod +x /app/vnc_config/start-vnc.sh
 
 # Exponer el puerto que usa Express y el puerto de VNC
-EXPOSE 3000 6080
+EXPOSE 3001 6080
 
 # Comando para iniciar supervisord que gestionará ambos servicios
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

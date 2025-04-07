@@ -12,6 +12,7 @@ services:
       - RESOLUTION=1366x768x24 # Resolución del navegador virtual
       - NOVNC_PORT=6080 # Puerto explícito para noVNC
       - DISPLAY=:99
+      - N8N_WEBHOOK_URL=https://n8n.sitemaster.lat/webhook/leotest # URL del webhook de n8n
     restart: unless-stopped
     # Necesario para ejecutar Chrome en Docker
     cap_add:
